@@ -2,6 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import styles from "./login.module.css";
+import Image from "next/image";
 
 export default function LoginPage() {
   return (
@@ -15,7 +16,7 @@ export default function LoginPage() {
             prompt: "select_account"
           })}
         >
-          <img
+          <Image
             src="/google.svg"
             alt="Google logo"
             width={20}
