@@ -4,7 +4,11 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
-export default function Navbar() {
+interface NavbarProps {
+  onBucketSelect: (bucketName: string) => void;
+}
+
+export default function Navbar({ onBucketSelect }: NavbarProps) {
   const { data: session } = useSession();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedBucket, setSelectedBucket] = useState('Select Bucket');
@@ -44,6 +48,7 @@ export default function Navbar() {
 
   const handleSelect = (bucket: string) => {
     setSelectedBucket(bucket);
+    onBucketSelect(bucket);
     handleClose();
   };
 
