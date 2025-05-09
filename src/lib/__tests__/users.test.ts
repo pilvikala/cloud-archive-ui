@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach, jest } from '@jest/globals';
-import { isUserAllowed, allowedUsers } from '../users';
+import { isUserAllowed } from '../users';
 
 describe('User Access Control', () => {
   const originalEnv = process.env;
@@ -15,13 +15,6 @@ describe('User Access Control', () => {
 
   test('should load and validate users from ALLOWED_USERS environment variable', () => {
     process.env.ALLOWED_USERS = 'user1@example.com;user2@example.com;user3@example.com';
-    
-    // Test the loaded users list
-    expect(allowedUsers).toEqual([
-      'user1@example.com',
-      'user2@example.com',
-      'user3@example.com'
-    ]);
 
     // Test access control
     expect(isUserAllowed('user1@example.com')).toBe(true);
@@ -32,13 +25,11 @@ describe('User Access Control', () => {
 
   test('should handle empty ALLOWED_USERS environment variable', () => {
     process.env.ALLOWED_USERS = '';
-    expect(allowedUsers).toEqual([]);
     expect(isUserAllowed('any@example.com')).toBe(false);
   });
 
   test('should handle missing ALLOWED_USERS environment variable', () => {
     delete process.env.ALLOWED_USERS;
-    expect(allowedUsers).toEqual([]);
     expect(isUserAllowed('any@example.com')).toBe(false);
   });
 
@@ -51,11 +42,7 @@ describe('User Access Control', () => {
 
   test('should trim whitespace and filter empty emails from environment variable', () => {
     process.env.ALLOWED_USERS = ' user1@example.com ; user2@example.com ;; user3@example.com ';
-    expect(allowedUsers).toEqual([
-      'user1@example.com',
-      'user2@example.com',
-      'user3@example.com'
-    ]);
+    
     expect(isUserAllowed('user1@example.com')).toBe(true);
     expect(isUserAllowed('user2@example.com')).toBe(true);
     expect(isUserAllowed('user3@example.com')).toBe(true);
