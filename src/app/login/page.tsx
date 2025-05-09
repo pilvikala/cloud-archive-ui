@@ -10,7 +10,10 @@ export default function LoginPage() {
         <h1>Welcome</h1>
         <button
           className={styles.googleButton}
-          onClick={() => signIn("google", { callbackUrl: "/" })}
+          onClick={() => signIn("google", { 
+            callbackUrl: "/",
+            prompt: "select_account"
+          })}
         >
           <img
             src="/google.svg"
