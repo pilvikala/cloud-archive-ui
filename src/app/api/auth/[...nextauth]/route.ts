@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { isUserAllowed } from "@/lib/users";
 
 const handler = NextAuth({
   providers: [
@@ -10,6 +11,14 @@ const handler = NextAuth({
   ],
   pages: {
     signIn: "/login",
+  },
+  callbacks: {
+    async signIn({ user }) {
+      if (!user.email) {
+        return false;
+      }
+      return isUserAllowed(user.email);
+    },
   },
 });
 
