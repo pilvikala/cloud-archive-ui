@@ -1,5 +1,5 @@
 import { Storage } from '@google-cloud/storage';
-import { listBuckets } from '../gcpClient';
+import { listBuckets, listBucketContents } from '../gcpClient';
 
 // Mock the @google-cloud/storage module
 jest.mock('@google-cloud/storage');
@@ -81,6 +81,92 @@ describe('GCP Client', () => {
       
       // Verify that the function throws
       await expect(listBuckets()).rejects.toThrow('Invalid GOOGLE_SERVICE_ACCOUNT JSON format');
+    });
+  });
+
+  describe('listBucketContents', () => {
+    let mockGetFiles: jest.Mock;
+    let mockBucket: jest.Mock;
+
+    beforeEach(() => {
+      // Setup mock implementation for bucket and getFiles
+      mockGetFiles = jest.fn();
+      mockBucket = jest.fn().mockReturnValue({
+        getFiles: mockGetFiles
+      });
+      (Storage as unknown as jest.Mock).mockImplementation(() => ({
+        bucket: mockBucket
+      }));
+    });
+
+    it('should return list of files with names and sizes', async () => {
+      // Mock data
+      const mockFiles = [
+        { name: 'file1.txt', metadata: { size: '1024' } },
+        { name: 'folder/file2.txt', metadata: { size: '2048' } },
+        { name: 'file3.txt', metadata: { size: '3072' } }
+      ];
+      
+      // Setup mock response
+      mockGetFiles.mockResolvedValue([mockFiles]);
+      
+      // Call the function
+      const result = await listBucketContents('test-bucket');
+      
+      // Verify results
+      expect(result).toEqual([
+        { name: 'file1.txt', size: 1024 },
+        { name: 'folder/file2.txt', size: 2048 },
+        { name: 'file3.txt', size: 3072 }
+      ]);
+      expect(mockBucket).toHaveBeenCalledWith('test-bucket');
+      expect(mockGetFiles).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle files with undefined size', async () => {
+      // Mock data with undefined size
+      const mockFiles = [
+        { name: 'file1.txt', metadata: { size: undefined } },
+        { name: 'file2.txt', metadata: {} }
+      ];
+      
+      // Setup mock response
+      mockGetFiles.mockResolvedValue([mockFiles]);
+      
+      // Call the function
+      const result = await listBucketContents('test-bucket');
+      
+      // Verify results
+      expect(result).toEqual([
+        { name: 'file1.txt', size: 0 },
+        { name: 'file2.txt', size: 0 }
+      ]);
+    });
+
+    it('should throw error when GCP client fails', async () => {
+      // Setup mock to throw error
+      mockGetFiles.mockRejectedValue(new Error('GCP API Error'));
+      
+      // Verify that the function throws
+      await expect(listBucketContents('test-bucket')).rejects.toThrow('Failed to list contents of bucket test-bucket');
+      expect(mockBucket).toHaveBeenCalledWith('test-bucket');
+      expect(mockGetFiles).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw error when service account is not set', async () => {
+      // Remove environment variable
+      delete process.env.GOOGLE_SERVICE_ACCOUNT;
+      
+      // Verify that the function throws
+      await expect(listBucketContents('test-bucket')).rejects.toThrow('GOOGLE_SERVICE_ACCOUNT environment variable is not set');
+    });
+
+    it('should throw error when service account JSON is invalid', async () => {
+      // Set invalid JSON
+      process.env.GOOGLE_SERVICE_ACCOUNT = 'invalid-json';
+      
+      // Verify that the function throws
+      await expect(listBucketContents('test-bucket')).rejects.toThrow('Invalid GOOGLE_SERVICE_ACCOUNT JSON format');
     });
   });
 }); 
