@@ -1,6 +1,5 @@
 import { AppBar, Toolbar, Typography, Button, Box, Menu, MenuItem, CircularProgress } from '@mui/material';
 import { signOut } from 'next-auth/react';
-import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
@@ -9,7 +8,6 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onBucketSelect }: NavbarProps) {
-  const { data: session } = useSession();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedBucket, setSelectedBucket] = useState('Select Bucket');
   const [buckets, setBuckets] = useState<string[]>([]);
@@ -97,9 +95,6 @@ export default function Navbar({ onBucketSelect }: NavbarProps) {
               </Menu>
             </>
           )}
-          <Typography variant="body1">
-            {session?.user?.name}
-          </Typography>
           <Button 
             color="inherit" 
             onClick={() => signOut({ callbackUrl: '/login' })}

@@ -8,7 +8,6 @@ export default function LoginPage() {
   return (
     <div className={styles.container}>
       <div className={styles.loginBox}>
-        <h1>Welcome</h1>
         <button
           className={styles.googleButton}
           onClick={() => signIn("google", { 

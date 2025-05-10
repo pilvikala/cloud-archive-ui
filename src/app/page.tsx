@@ -9,7 +9,7 @@ import { Container, Box } from "@mui/material";
 import { useState } from "react";
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [selectedBucket, setSelectedBucket] = useState<string>('');
 
   if (status === "loading") {
@@ -30,10 +30,6 @@ export default function Home() {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar onBucketSelect={setSelectedBucket} />
       <Container component="main" sx={{ mt: 4, flex: 1 }}>
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <h1>Welcome, {session?.user?.name}!</h1>
-          <p>You are signed in as {session?.user?.email}</p>
-        </Box>
         <BucketContents bucketName={selectedBucket} />
       </Container>
     </Box>
