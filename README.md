@@ -1,33 +1,18 @@
+# Cloud Archive UI
+
+I developed this because I did not want to buy another SSD to store my movies on and I was worried the old SSD would break one day. Using a Storage bucket with Archive class is super cheap (1 TB costs around 5 cents/day) so this is where I archive my data now. As a related project, check the local storage sync tool at https://github.com/pilvikala/cloud-archive.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 This App shows a contents of a selected GCP Storage Bucket and allows you to download that. It is useful to share data in the bucket safely with your family. No database is needed, authentication is handled via Google credentials.
 
-As a related project, check the local storage sync tool at https://github.com/pilvikala/cloud-archive.
-
 ## Getting Started
 
-First, run the development server:
+You'll need to set up a GCP Storage bucket with Archive class (or whatever, but this one's the cheapest and you pay extra for data retrieval).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+You'll need a service account with an access to the bucket, and you'll need Google OAuth credentials. All can be set up using the Google Cloud Console. There's some guidance below on how to do this.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-
-## Environment variables
+## Setting the project up
 
 Copy the `.env.example` to `.env` and fill in the variables. You will need to do the same on Vercel.
 
@@ -41,7 +26,7 @@ ALLOWED_USERS="user@example.com;user2@example.com" # list of emails that are all
 # Service account key json
 GOOGLE_SERVICE_ACCOUNT=' 
 {
-service account json
+... the json...
 }
 '
 ```
@@ -76,3 +61,31 @@ service account json
 14. Open the downloaded JSON file and copy its contents into your .env file's GOOGLE_SERVICE_ACCOUNT variable. Enclose it in single quotes as shown in the example.
 
 Note: Keep your service account key secure and never commit it to version control. If compromised, you can always delete the key and create a new one.
+
+
+## Run the server locally
+
+Make sure you have NodeJS installed. Then install dependencies:
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Deploy on Vercel
+
+The easiest way to deploy this app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
