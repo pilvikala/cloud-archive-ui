@@ -28,9 +28,15 @@ export default function Home() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Navbar onBucketSelect={setSelectedBucket} />
+      <Navbar 
+        selectedBucket={selectedBucket}
+        onBucketSelect={setSelectedBucket} 
+      />
       <Container component="main" sx={{ mt: 4, flex: 1 }}>
-        <BucketContents bucketName={selectedBucket} />
+        <BucketContents 
+          bucketName={selectedBucket}
+          onBucketSelect={setSelectedBucket}
+        />
       </Container>
     </Box>
   );

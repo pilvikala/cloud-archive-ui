@@ -3,6 +3,7 @@ import { Box, List, ListItem, ListItemText, Typography, CircularProgress, Paper,
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import BucketSelector from './BucketSelector';
 
 interface FileItem {
   name: string;
@@ -19,9 +20,10 @@ interface FolderStructure {
 
 interface BucketContentsProps {
   bucketName: string;
+  onBucketSelect: (bucketName: string) => void;
 }
 
-export default function BucketContents({ bucketName }: BucketContentsProps) {
+export default function BucketContents({ bucketName, onBucketSelect }: BucketContentsProps) {
   const [contents, setContents] = useState<FileItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,101 +140,110 @@ export default function BucketContents({ bucketName }: BucketContentsProps) {
     );
   }
 
-  if (!bucketName) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="text.secondary">Select a bucket to view its contents</Typography>
-      </Box>
-    );
-  }
-
   const folderStructure = organizeByFolders(contents);
   const { files, folders } = getCurrentFolderContents(folderStructure);
   const pathParts = currentPath ? currentPath.split('/') : [];
 
   return (
     <Paper sx={{ p: 2, mt: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Contents of {bucketName}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        {!bucketName ? (
+          <>
+            <BucketSelector
+              selectedBucket={bucketName}
+              onBucketSelect={onBucketSelect}
+              variant="outlined"
+              color="primary"
+            />
+          </>
+        ) : (
+          <Typography variant="h6">
+            Contents of {bucketName}
+          </Typography>
+        )}
+      </Box>
       
-      {/* Breadcrumb navigation */}
-      <Breadcrumbs 
-        separator={<NavigateNextIcon fontSize="small" />} 
-        aria-label="folder navigation"
-        sx={{ mb: 2 }}
-      >
-        <Link
-          component="button"
-          variant="body1"
-          onClick={() => setCurrentPath('')}
-          sx={{ cursor: 'pointer' }}
-        >
-          Root
-        </Link>
-        {pathParts.map((part, index) => (
-          <Link
-            key={index}
-            component="button"
-            variant="body1"
-            onClick={() => handleBreadcrumbClick(index + 1)}
-            sx={{ cursor: 'pointer' }}
+      {bucketName && (
+        <>
+          {/* Breadcrumb navigation */}
+          <Breadcrumbs 
+            separator={<NavigateNextIcon fontSize="small" />} 
+            aria-label="folder navigation"
+            sx={{ mb: 2 }}
           >
-            {part}
-          </Link>
-        ))}
-      </Breadcrumbs>
-
-      {/* Folders */}
-      {folders.length > 0 && (
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-            Folders
-          </Typography>
-          <List>
-            {folders.map((folder) => (
-              <ListItem 
-                key={folder}
-                component="div"
-                sx={{ 
-                  pl: 2,
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: 'action.hover' }
-                }}
-                onClick={() => handleFolderClick(folder)}
+            <Link
+              component="button"
+              variant="body1"
+              onClick={() => setCurrentPath('')}
+              sx={{ cursor: 'pointer' }}
+            >
+              Root
+            </Link>
+            {pathParts.map((part, index) => (
+              <Link
+                key={index}
+                component="button"
+                variant="body1"
+                onClick={() => handleBreadcrumbClick(index + 1)}
+                sx={{ cursor: 'pointer' }}
               >
-                <FolderIcon sx={{ mr: 1, color: 'primary.main' }} />
-                <ListItemText primary={folder.split('/').pop()} />
-              </ListItem>
+                {part}
+              </Link>
             ))}
-          </List>
-        </Box>
-      )}
+          </Breadcrumbs>
 
-      {/* Files */}
-      {files.length > 0 && (
-        <Box>
-          <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-            Files
-          </Typography>
-          <List>
-            {files.map((file, index) => (
-              <ListItem key={index} sx={{ pl: 2 }}>
-                <InsertDriveFileIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                <ListItemText 
-                  primary={file.name}
-                  secondary={formatFileSize(file.size)}
-                />
-              </ListItem>
-            ))}
-          </List>
-        </Box>
-      )}
+          {/* Folders */}
+          {folders.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                Folders
+              </Typography>
+              <List>
+                {folders.map((folder) => (
+                  <ListItem 
+                    key={folder}
+                    component="div"
+                    sx={{ 
+                      pl: 2,
+                      cursor: 'pointer',
+                      '&:hover': { backgroundColor: 'action.hover' }
+                    }}
+                    onClick={() => handleFolderClick(folder)}
+                  >
+                    <FolderIcon sx={{ mr: 1, color: 'primary.main' }} />
+                    <ListItemText primary={folder.split('/').pop()} />
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
 
-      {folders.length === 0 && files.length === 0 && (
-        <Typography color="text.secondary" sx={{ py: 2 }}>
-          This folder is empty
-        </Typography>
+          {/* Files */}
+          {files.length > 0 && (
+            <Box>
+              <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                Files
+              </Typography>
+              <List>
+                {files.map((file, index) => (
+                  <ListItem key={index} sx={{ pl: 2 }}>
+                    <InsertDriveFileIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <ListItemText 
+                      primary={file.name}
+                      secondary={formatFileSize(file.size)}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
+
+          {folders.length === 0 && files.length === 0 && (
+            <Typography color="text.secondary" sx={{ py: 2 }}>
+              This folder is empty
+            </Typography>
+          )}
+        </>
       )}
     </Paper>
   );
