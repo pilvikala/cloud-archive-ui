@@ -5,14 +5,14 @@ import { authOptions } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { bucketName: string; filePath: string } }
+  { params }: { params: Promise<{ bucketName: string; filePath: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { bucketName, filePath } = params;
+  const { bucketName, filePath } = await params;
 
   if (!bucketName || !filePath) {
     return NextResponse.json(
