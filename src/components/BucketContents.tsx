@@ -229,7 +229,13 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
                 {files.map((file, index) => (
                   <ListItem 
                     key={index} 
-                    sx={{ pl: 2 }}
+                    sx={{ 
+                      pl: 2,
+                      cursor: 'pointer',
+                      '&:hover': { 
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
                     secondaryAction={
                       <IconButton 
                         edge="end" 
