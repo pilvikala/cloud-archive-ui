@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Box, List, ListItem, ListItemText, Typography, CircularProgress, Paper, Breadcrumbs, Link } from '@mui/material';
+import { Box, List, ListItem, ListItemText, Typography, CircularProgress, Paper, Breadcrumbs, Link, IconButton } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import DownloadIcon from '@mui/icons-material/Download';
 import BucketSelector from './BucketSelector';
 
 interface FileItem {
@@ -226,7 +227,22 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
               </Typography>
               <List>
                 {files.map((file, index) => (
-                  <ListItem key={index} sx={{ pl: 2 }}>
+                  <ListItem 
+                    key={index} 
+                    sx={{ pl: 2 }}
+                    secondaryAction={
+                      <IconButton 
+                        edge="end" 
+                        aria-label="download"
+                        onClick={() => {
+                          const fullPath = currentPath ? `${currentPath}/${file.name}` : file.name;
+                          window.open(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`, '_blank');
+                        }}
+                      >
+                        <DownloadIcon />
+                      </IconButton>
+                    }
+                  >
                     <InsertDriveFileIcon sx={{ mr: 1, color: 'text.secondary' }} />
                     <ListItemText 
                       primary={file.name}
