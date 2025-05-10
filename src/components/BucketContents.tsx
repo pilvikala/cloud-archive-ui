@@ -12,6 +12,7 @@ interface FileItem {
 interface FolderStructure {
   [key: string]: {
     files: FileItem[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     subfolders: { [key: string]: any };
   };
 }
