@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { downloadFile } from '@/lib/gcpClient';
+import { getSignedUrl } from '@/lib/gcpClient';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -22,22 +22,20 @@ export async function GET(
   }
 
   try {
-    const fileStream = await downloadFile(bucketName, filePath);
+    const signedUrl = await getSignedUrl(bucketName, filePath);
     
     // Get the filename from the path
     const filename = filePath.split('/').pop() || filePath;
     
-    // Create response with the file stream
-    return new NextResponse(fileStream, {
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-      },
+    // Return the signed URL and filename
+    return NextResponse.json({
+      url: signedUrl,
+      filename: filename
     });
   } catch (error) {
-    console.error(`Error downloading file ${filePath} from bucket ${bucketName}:`, error);
+    console.error(`Error generating signed URL for file ${filePath} from bucket ${bucketName}:`, error);
     return NextResponse.json(
-      { error: `Failed to download file ${filePath} from bucket ${bucketName}` },
+      { error: `Failed to generate download URL for file ${filePath} from bucket ${bucketName}` },
       { status: 500 }
     );
   }

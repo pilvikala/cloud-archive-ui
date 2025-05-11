@@ -137,4 +137,54 @@ export async function downloadFile(bucketName: string, filePath: string): Promis
         console.error('Error downloading file:', error);
         throw new Error(`Failed to download file ${filePath} from bucket ${bucketName}`);
     }
+}
+
+/**
+ * Generates a signed URL for downloading a file from a GCP bucket
+ * @param bucketName Name of the bucket containing the file
+ * @param filePath Path of the file within the bucket
+ * @returns Promise<string> A signed URL that can be used to download the file
+ * @throws Error if GCP credentials are invalid or if there's an error generating the URL
+ */
+export async function getSignedUrl(bucketName: string, filePath: string): Promise<string> {
+    // Get service account credentials from environment variable
+    const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT;
+    if (!serviceAccountJson) {
+        throw new Error('GOOGLE_SERVICE_ACCOUNT environment variable is not set');
+    }
+    try {
+        // Parse the service account JSON
+        const credentials = JSON.parse(serviceAccountJson);
+
+        // Initialize the GCP Storage client with explicit credentials
+        const storage = new Storage({
+            credentials,
+            projectId: credentials.project_id
+        });
+
+        // Get the bucket and file
+        const bucket = storage.bucket(bucketName);
+        const file = bucket.file(filePath);
+
+        // Check if file exists
+        const [exists] = await file.exists();
+        if (!exists) {
+            throw new Error(`File ${filePath} not found in bucket ${bucketName}`);
+        }
+
+        // Generate a signed URL that expires in 15 minutes
+        const [url] = await file.getSignedUrl({
+            version: 'v4',
+            action: 'read',
+            expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+        });
+
+        return url;
+    } catch (error) {
+        if (error instanceof SyntaxError) {
+            throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT JSON format');
+        }
+        console.error('Error generating signed URL:', error);
+        throw new Error(`Failed to generate signed URL for file ${filePath} from bucket ${bucketName}`);
+    }
 } 

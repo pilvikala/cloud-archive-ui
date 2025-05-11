@@ -240,9 +240,25 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
                       <IconButton 
                         edge="end" 
                         aria-label="download"
-                        onClick={() => {
+                        onClick={async () => {
                           const fullPath = currentPath ? `${currentPath}/${file.name}` : file.name;
-                          window.open(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`, '_blank');
+                          try {
+                            const response = await fetch(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`);
+                            if (!response.ok) {
+                              throw new Error('Failed to get download URL');
+                            }
+                            const data = await response.json();
+                            // Create a temporary link and trigger download
+                            const link = document.createElement('a');
+                            link.href = data.url;
+                            link.download = data.filename;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } catch (error) {
+                            console.error('Error downloading file:', error);
+                            // You might want to show an error message to the user here
+                          }
                         }}
                       >
                         <DownloadIcon />
