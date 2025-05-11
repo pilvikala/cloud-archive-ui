@@ -29,6 +29,7 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('');
+  const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchContents = async () => {
@@ -240,12 +241,40 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
                       <IconButton 
                         edge="end" 
                         aria-label="download"
-                        onClick={() => {
+                        onClick={async () => {
                           const fullPath = currentPath ? `${currentPath}/${file.name}` : file.name;
-                          window.open(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`, '_blank');
+                          setDownloadingFiles(prev => new Set(prev).add(fullPath));
+                          try {
+                            const response = await fetch(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`);
+                            if (!response.ok) {
+                              throw new Error('Failed to get download URL');
+                            }
+                            const data = await response.json();
+                            // Create a temporary link and trigger download
+                            const link = document.createElement('a');
+                            link.href = data.url;
+                            link.download = data.filename;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } catch (error) {
+                            console.error('Error downloading file:', error);
+                            // You might want to show an error message to the user here
+                          } finally {
+                            setDownloadingFiles(prev => {
+                              const newSet = new Set(prev);
+                              newSet.delete(fullPath);
+                              return newSet;
+                            });
+                          }
                         }}
+                        disabled={downloadingFiles.has(currentPath ? `${currentPath}/${file.name}` : file.name)}
                       >
-                        <DownloadIcon />
+                        {downloadingFiles.has(currentPath ? `${currentPath}/${file.name}` : file.name) ? (
+                          <CircularProgress size={24} />
+                        ) : (
+                          <DownloadIcon />
+                        )}
                       </IconButton>
                     }
                   >

@@ -78,13 +78,13 @@ export async function listBucketContents(bucketName: string): Promise<Array<{nam
 }
 
 /**
- * Downloads a file from a GCP bucket and returns a readable stream
+ * Generates a signed URL for downloading a file from a GCP bucket
  * @param bucketName Name of the bucket containing the file
  * @param filePath Path of the file within the bucket
- * @returns Promise<ReadableStream> A readable stream of the file contents
- * @throws Error if GCP credentials are invalid or if there's an error downloading the file
+ * @returns Promise<string> A signed URL that can be used to download the file
+ * @throws Error if GCP credentials are invalid or if there's an error generating the URL
  */
-export async function downloadFile(bucketName: string, filePath: string): Promise<ReadableStream> {
+export async function getSignedUrl(bucketName: string, filePath: string): Promise<string> {
     // Get service account credentials from environment variable
     const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT;
     if (!serviceAccountJson) {
@@ -110,31 +110,19 @@ export async function downloadFile(bucketName: string, filePath: string): Promis
             throw new Error(`File ${filePath} not found in bucket ${bucketName}`);
         }
 
-        // Create a readable stream from the file
-        const fileStream = file.createReadStream();
-
-        // Convert Node.js stream to Web ReadableStream
-        return new ReadableStream({
-            start(controller) {
-                fileStream.on('data', (chunk) => {
-                    controller.enqueue(chunk);
-                });
-                fileStream.on('end', () => {
-                    controller.close();
-                });
-                fileStream.on('error', (error) => {
-                    controller.error(error);
-                });
-            },
-            cancel() {
-                fileStream.destroy();
-            }
+        // Generate a signed URL that expires in 15 minutes
+        const [url] = await file.getSignedUrl({
+            version: 'v4',
+            action: 'read',
+            expires: Date.now() + 15 * 60 * 1000, // 15 minutes
         });
+
+        return url;
     } catch (error) {
         if (error instanceof SyntaxError) {
             throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT JSON format');
         }
-        console.error('Error downloading file:', error);
-        throw new Error(`Failed to download file ${filePath} from bucket ${bucketName}`);
+        console.error('Error generating signed URL:', error);
+        throw new Error(`Failed to generate signed URL for file ${filePath} from bucket ${bucketName}`);
     }
 } 
