@@ -1,5 +1,5 @@
 import { Storage } from '@google-cloud/storage';
-import { listBuckets, listBucketContents } from '../gcpClient';
+import { listBuckets, listBucketContents, getSignedUrl } from '../gcpClient';
 
 // Mock the @google-cloud/storage module
 jest.mock('@google-cloud/storage');
@@ -167,6 +167,96 @@ describe('GCP Client', () => {
       
       // Verify that the function throws
       await expect(listBucketContents('test-bucket')).rejects.toThrow('Invalid GOOGLE_SERVICE_ACCOUNT JSON format');
+    });
+  });
+
+  describe('getSignedUrl', () => {
+    let mockExists: jest.Mock;
+    let mockGetSignedUrl: jest.Mock;
+    let mockFile: jest.Mock;
+    let mockBucket: jest.Mock;
+
+    beforeEach(() => {
+      // Setup mock implementation for bucket, file, exists, and getSignedUrl
+      mockExists = jest.fn();
+      mockGetSignedUrl = jest.fn();
+      mockFile = jest.fn().mockReturnValue({
+        exists: mockExists,
+        getSignedUrl: mockGetSignedUrl
+      });
+      mockBucket = jest.fn().mockReturnValue({
+        file: mockFile
+      });
+      (Storage as unknown as jest.Mock).mockImplementation(() => ({
+        bucket: mockBucket
+      }));
+    });
+
+    it('should return a signed URL for an existing file', async () => {
+      // Mock data
+      const mockUrl = 'https://storage.googleapis.com/test-bucket/test-file.txt?signature=xyz';
+      
+      // Setup mock responses
+      mockExists.mockResolvedValue([true]);
+      mockGetSignedUrl.mockResolvedValue([mockUrl]);
+      
+      // Call the function
+      const result = await getSignedUrl('test-bucket', 'test-file.txt');
+      
+      // Verify results
+      expect(result).toBe(mockUrl);
+      expect(mockBucket).toHaveBeenCalledWith('test-bucket');
+      expect(mockFile).toHaveBeenCalledWith('test-file.txt');
+      expect(mockExists).toHaveBeenCalledTimes(1);
+      expect(mockGetSignedUrl).toHaveBeenCalledWith({
+        version: 'v4',
+        action: 'read',
+        expires: expect.any(Number)
+      });
+    });
+
+    it('should throw error when file does not exist', async () => {
+      // Setup mock to return false for exists
+      mockExists.mockResolvedValue([false]);
+      
+      // Verify that the function throws
+      await expect(getSignedUrl('test-bucket', 'nonexistent.txt'))
+        .rejects
+        .toThrow('Failed to generate signed URL for file nonexistent.txt from bucket test-bucket');
+      expect(mockExists).toHaveBeenCalledTimes(1);
+      expect(mockGetSignedUrl).not.toHaveBeenCalled();
+    });
+
+    it('should throw error when GCP client fails', async () => {
+      // Setup mock to throw error
+      mockExists.mockRejectedValue(new Error('GCP API Error'));
+      
+      // Verify that the function throws
+      await expect(getSignedUrl('test-bucket', 'test-file.txt'))
+        .rejects
+        .toThrow('Failed to generate signed URL for file test-file.txt from bucket test-bucket');
+      expect(mockExists).toHaveBeenCalledTimes(1);
+      expect(mockGetSignedUrl).not.toHaveBeenCalled();
+    });
+
+    it('should throw error when service account is not set', async () => {
+      // Remove environment variable
+      delete process.env.GOOGLE_SERVICE_ACCOUNT;
+      
+      // Verify that the function throws
+      await expect(getSignedUrl('test-bucket', 'test-file.txt'))
+        .rejects
+        .toThrow('GOOGLE_SERVICE_ACCOUNT environment variable is not set');
+    });
+
+    it('should throw error when service account JSON is invalid', async () => {
+      // Set invalid JSON
+      process.env.GOOGLE_SERVICE_ACCOUNT = 'invalid-json';
+      
+      // Verify that the function throws
+      await expect(getSignedUrl('test-bucket', 'test-file.txt'))
+        .rejects
+        .toThrow('Invalid GOOGLE_SERVICE_ACCOUNT JSON format');
     });
   });
 }); 
