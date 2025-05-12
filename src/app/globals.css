@@ -39,4 +39,17 @@ a {
   html {
     color-scheme: dark;
   }
+
+  /* Ensure Material-UI components respect dark mode */
+  .MuiPaper-root {
+    background-color: #1a1a1a !important;
+  }
+
+  .MuiAppBar-root {
+    background-color: #1a1a1a !important;
+  }
+
+  .MuiContainer-root {
+    background-color: var(--background) !important;
+  }
 }

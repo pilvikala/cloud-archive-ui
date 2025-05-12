@@ -26,6 +26,7 @@
   font-size: 16px;
   cursor: pointer;
   transition: background-color 0.2s;
+  color: #000;
 }
 
 .googleButton:hover {
@@ -34,4 +35,25 @@
 
 .googleIcon {
   margin-right: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .container {
+    background-color: #0a0a0a;
+  }
+
+  .loginBox {
+    background: #1a1a1a;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .googleButton {
+    background: #1a1a1a;
+    border-color: #333;
+    color: #fff;
+  }
+
+  .googleButton:hover {
+    background-color: #2a2a2a;
+  }
 } 
