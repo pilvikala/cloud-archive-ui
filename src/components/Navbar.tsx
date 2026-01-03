@@ -8,11 +8,13 @@ interface NavbarProps {
   selectedBucket: string;
   onBucketSelect: (bucketName: string) => void;
   onSearchChange: (query: string) => Promise<void>;
+  searchQuery?: string; // Add searchQuery prop to sync with parent
 }
 
-export default function Navbar({ selectedBucket, onBucketSelect, onSearchChange }: NavbarProps) {
+export default function Navbar({ selectedBucket, onBucketSelect, onSearchChange, searchQuery = '' }: NavbarProps) {
   const [localSearchValue, setLocalSearchValue] = useState('');
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSentValueRef = useRef<string>('');
 
   useEffect(() => {
     // Clear any existing timer
@@ -22,6 +24,7 @@ export default function Navbar({ selectedBucket, onBucketSelect, onSearchChange 
 
     // Set a new timer to debounce the search
     debounceTimerRef.current = setTimeout(() => {
+      lastSentValueRef.current = localSearchValue;
       onSearchChange(localSearchValue);
     }, 300); // 300ms debounce delay
 
@@ -32,6 +35,26 @@ export default function Navbar({ selectedBucket, onBucketSelect, onSearchChange 
       }
     };
   }, [localSearchValue, onSearchChange]);
+
+  // Sync local search value with parent's searchQuery when it's cleared externally
+  // Only sync when searchQuery becomes empty from a non-empty value (external clear)
+  useEffect(() => {
+    // Only sync when parent explicitly clears (searchQuery is empty but we have a local value)
+    // AND we had previously sent a non-empty value (meaning it was cleared externally, not by user)
+    if (searchQuery === '' && lastSentValueRef.current !== '' && localSearchValue !== '') {
+      setLocalSearchValue('');
+      lastSentValueRef.current = '';
+      // Clear any pending debounced calls
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    }
+    // Also update lastSentValueRef when searchQuery changes from parent (after debounce)
+    else if (searchQuery !== '' && searchQuery === localSearchValue) {
+      lastSentValueRef.current = searchQuery;
+    }
+  }, [searchQuery, localSearchValue]);
 
   // Clear search when bucket changes
   useEffect(() => {

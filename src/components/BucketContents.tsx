@@ -327,11 +327,12 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
                       '&:hover': { backgroundColor: 'action.hover' }
                     }}
                     onClick={() => {
-                      handleFolderClick(folder);
                       // Clear search when navigating to a folder
                       if (isSearchMode) {
                         onClearSearch?.();
                       }
+                      // Navigate to the folder
+                      handleFolderClick(folder);
                     }}
                     secondaryAction={
                       isSearchMode ? (

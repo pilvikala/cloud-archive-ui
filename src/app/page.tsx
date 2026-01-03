@@ -42,6 +42,7 @@ export default function Home() {
         selectedBucket={selectedBucket}
         onBucketSelect={handleBucketSelect}
         onSearchChange={handleSearchChange}
+        searchQuery={searchQuery}
       />
       <Container component="main" sx={{ mt: 4, flex: 1 }}>
         <BucketContents 
