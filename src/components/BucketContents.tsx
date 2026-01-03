@@ -100,18 +100,18 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
-  const getAllFolders = (structure: FolderStructure, prefix = ''): string[] => {
+  const getAllFolders = (structure: FolderStructure): string[] => {
     const folders: string[] = [];
     const root = structure[''];
     
-    const traverse = (level: { files: FileItem[], subfolders: { [key: string]: any } }, path: string) => {
+    const traverse = (level: { files: FileItem[], subfolders: FolderStructure }) => {
       Object.keys(level.subfolders).forEach(folderPath => {
         folders.push(folderPath);
-        traverse(level.subfolders[folderPath], folderPath);
+        traverse(level.subfolders[folderPath]);
       });
     };
     
-    traverse(root, '');
+    traverse(root);
     return folders;
   };
 
@@ -216,10 +216,6 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
     return folder.split('/').pop() || folder;
   };
   
-  const getFolderFullPath = (folder: string): string => {
-    return folder;
-  };
-
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -300,7 +296,7 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
           {/* Search results header */}
           {isSearchMode && (
             <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
-              Search results for "{searchQuery}" ({files.length + folders.length} {files.length + folders.length === 1 ? 'result' : 'results'})
+              Search results for &quot;{searchQuery}&quot; ({files.length + folders.length} {files.length + folders.length === 1 ? 'result' : 'results'})
             </Typography>
           )}
 
