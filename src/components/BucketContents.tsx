@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Box, List, ListItem, ListItemText, Typography, CircularProgress, Paper, Breadcrumbs, Link, IconButton } from '@mui/material';
+import { useState, useEffect, useMemo } from 'react';
+import { Box, List, ListItem, ListItemText, Typography, CircularProgress, Paper, Breadcrumbs, Link, IconButton, Snackbar, Alert } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import DownloadIcon from '@mui/icons-material/Download';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import BucketSelector from './BucketSelector';
 
 interface FileItem {
   name: string;
   size: number;
+  fullPath?: string; // Optional full path for search results
 }
 
 interface FolderStructure {
@@ -22,14 +24,18 @@ interface FolderStructure {
 interface BucketContentsProps {
   bucketName: string;
   onBucketSelect: (bucketName: string) => void;
+  searchQuery?: string;
+  onClearSearch?: () => void;
 }
 
-export default function BucketContents({ bucketName, onBucketSelect }: BucketContentsProps) {
+export default function BucketContents({ bucketName, onBucketSelect, searchQuery = '', onClearSearch }: BucketContentsProps) {
   const [contents, setContents] = useState<FileItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   useEffect(() => {
     const fetchContents = async () => {
@@ -94,27 +100,81 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
-  const getCurrentFolderContents = (structure: FolderStructure): { files: FileItem[], folders: string[] } => {
-    if (!currentPath) {
-      return {
-        files: structure[''].files,
-        folders: Object.keys(structure[''].subfolders)
+  const getAllFolders = (structure: FolderStructure): string[] => {
+    const folders: string[] = [];
+    const root = structure[''];
+    
+    const traverse = (level: { files: FileItem[], subfolders: FolderStructure }) => {
+      Object.keys(level.subfolders).forEach(folderPath => {
+        folders.push(folderPath);
+        traverse(level.subfolders[folderPath]);
+      });
+    };
+    
+    traverse(root);
+    return folders;
+  };
+
+  const getCurrentFolderContents = (structure: FolderStructure): { files: FileItem[], folders: string[], isSearchMode: boolean } => {
+    const hasSearchQuery = searchQuery.trim().length > 0;
+    
+    // If searching, search globally across all files and folders
+    if (hasSearchQuery) {
+      const query = searchQuery.toLowerCase().trim();
+      const allFiles: FileItem[] = [];
+      const allFolders: string[] = [];
+      
+      // Search through all files - optimized with early exit for empty query
+      if (query.length > 0) {
+        contents.forEach(file => {
+          if (file.name.toLowerCase().includes(query)) {
+            allFiles.push({
+              name: file.name.split('/').pop() || file.name,
+              size: file.size,
+              fullPath: file.name
+            });
+          }
+        });
+        
+        // Search through all folders - calculate from structure
+        const allFolderPaths = getAllFolders(structure);
+        allFolderPaths.forEach(folderPath => {
+          const folderName = folderPath.split('/').pop() || '';
+          if (folderName.toLowerCase().includes(query) || folderPath.toLowerCase().includes(query)) {
+            allFolders.push(folderPath);
+          }
+        });
+      }
+      
+      return { 
+        files: allFiles, 
+        folders: allFolders,
+        isSearchMode: true
       };
     }
-
-    const parts = currentPath.split('/');
-    let currentLevel = structure[''];
     
-    for (const part of parts) {
-      const path = parts.slice(0, parts.indexOf(part) + 1).join('/');
-      currentLevel = currentLevel.subfolders[path];
-      if (!currentLevel) break;
+    // Normal folder browsing mode
+    let files: FileItem[] = [];
+    let folders: string[] = [];
+
+    if (!currentPath) {
+      files = structure[''].files;
+      folders = Object.keys(structure[''].subfolders);
+    } else {
+      const parts = currentPath.split('/');
+      let currentLevel = structure[''];
+      
+      for (const part of parts) {
+        const path = parts.slice(0, parts.indexOf(part) + 1).join('/');
+        currentLevel = currentLevel.subfolders[path];
+        if (!currentLevel) break;
+      }
+
+      files = currentLevel?.files || [];
+      folders = Object.keys(currentLevel?.subfolders || {});
     }
 
-    return {
-      files: currentLevel?.files || [],
-      folders: Object.keys(currentLevel?.subfolders || {})
-    };
+    return { files, folders, isSearchMode: false };
   };
 
   const handleFolderClick = (folderPath: string) => {
@@ -125,6 +185,18 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
     const parts = currentPath.split('/');
     setCurrentPath(parts.slice(0, index).join('/'));
   };
+
+  // Memoize the folder structure to avoid recalculating on every render
+  // Must be called before any early returns to follow React hooks rules
+  const folderStructure = useMemo(() => organizeByFolders(contents), [contents]);
+  
+  // Memoize the current folder contents to avoid recalculating search on every render
+  const { files, folders, isSearchMode } = useMemo(
+    () => getCurrentFolderContents(folderStructure),
+    [folderStructure, searchQuery, currentPath, contents]
+  );
+  
+  const pathParts = currentPath ? currentPath.split('/') : [];
 
   if (isLoading) {
     return (
@@ -141,10 +213,34 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
       </Box>
     );
   }
+  
+  // Get full paths for search results
+  const getFileFullPath = (file: FileItem): string => {
+    if (isSearchMode && file.fullPath) {
+      return file.fullPath;
+    }
+    return currentPath ? `${currentPath}/${file.name}` : file.name;
+  };
+  
+  const getFolderDisplayName = (folder: string): string => {
+    return folder.split('/').pop() || folder;
+  };
+  
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setSnackbarMessage('Path copied to clipboard');
+      setSnackbarOpen(true);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      setSnackbarMessage('Failed to copy path');
+      setSnackbarOpen(true);
+    }
+  };
 
-  const folderStructure = organizeByFolders(contents);
-  const { files, folders } = getCurrentFolderContents(folderStructure);
-  const pathParts = currentPath ? currentPath.split('/') : [];
+  const handleCloseSnackbar = () => {
+    setSnackbarOpen(false);
+  };
 
   return (
     <Paper sx={{ p: 2, mt: 2 }}>
@@ -167,32 +263,52 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
       
       {bucketName && (
         <>
-          {/* Breadcrumb navigation */}
-          <Breadcrumbs 
-            separator={<NavigateNextIcon fontSize="small" />} 
-            aria-label="folder navigation"
-            sx={{ mb: 2 }}
-          >
-            <Link
-              component="button"
-              variant="body1"
-              onClick={() => setCurrentPath('')}
-              sx={{ cursor: 'pointer' }}
-            >
-              Root
-            </Link>
-            {pathParts.map((part, index) => (
-              <Link
-                key={index}
-                component="button"
-                variant="body1"
-                onClick={() => handleBreadcrumbClick(index + 1)}
-                sx={{ cursor: 'pointer' }}
+          {/* Breadcrumb navigation - hide when searching */}
+          {!isSearchMode && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Breadcrumbs 
+                separator={<NavigateNextIcon fontSize="small" />} 
+                aria-label="folder navigation"
               >
-                {part}
-              </Link>
-            ))}
-          </Breadcrumbs>
+                <Link
+                  component="button"
+                  variant="body1"
+                  onClick={() => setCurrentPath('')}
+                  sx={{ cursor: 'pointer' }}
+                >
+                  Root
+                </Link>
+                {pathParts.map((part, index) => (
+                  <Link
+                    key={index}
+                    component="button"
+                    variant="body1"
+                    onClick={() => handleBreadcrumbClick(index + 1)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    {part}
+                  </Link>
+                ))}
+              </Breadcrumbs>
+              {currentPath && (
+                <IconButton
+                  size="small"
+                  onClick={() => copyToClipboard(currentPath)}
+                  aria-label="copy path"
+                  sx={{ ml: 1 }}
+                >
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
+              )}
+            </Box>
+          )}
+          
+          {/* Search results header */}
+          {isSearchMode && (
+            <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
+              Search results for &quot;{searchQuery}&quot; ({files.length + folders.length} {files.length + folders.length === 1 ? 'result' : 'results'})
+            </Typography>
+          )}
 
           {/* Folders */}
           {folders.length > 0 && (
@@ -210,10 +326,34 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
                       cursor: 'pointer',
                       '&:hover': { backgroundColor: 'action.hover' }
                     }}
-                    onClick={() => handleFolderClick(folder)}
+                    onClick={() => {
+                      // Clear search when navigating to a folder
+                      if (isSearchMode) {
+                        onClearSearch?.();
+                      }
+                      // Navigate to the folder
+                      handleFolderClick(folder);
+                    }}
+                    secondaryAction={
+                      isSearchMode ? (
+                        <IconButton
+                          edge="end"
+                          aria-label="copy path"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(folder);
+                          }}
+                        >
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                      ) : undefined
+                    }
                   >
                     <FolderIcon sx={{ mr: 1, color: 'primary.main' }} />
-                    <ListItemText primary={folder.split('/').pop()} />
+                    <ListItemText 
+                      primary={getFolderDisplayName(folder)}
+                      secondary={isSearchMode ? folder : undefined}
+                    />
                   </ListItem>
                 ))}
               </List>
@@ -238,50 +378,76 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
                       }
                     }}
                     secondaryAction={
-                      <IconButton 
-                        edge="end" 
-                        aria-label="download"
-                        onClick={async () => {
-                          const fullPath = currentPath ? `${currentPath}/${file.name}` : file.name;
-                          setDownloadingFiles(prev => new Set(prev).add(fullPath));
-                          try {
-                            const response = await fetch(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`);
-                            if (!response.ok) {
-                              throw new Error('Failed to get download URL');
-                            }
-                            const data = await response.json();
-                            // Create a temporary link and trigger download
-                            const link = document.createElement('a');
-                            link.href = data.url;
-                            link.download = data.filename;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          } catch (error) {
-                            console.error('Error downloading file:', error);
-                            // You might want to show an error message to the user here
-                          } finally {
-                            setDownloadingFiles(prev => {
-                              const newSet = new Set(prev);
-                              newSet.delete(fullPath);
-                              return newSet;
-                            });
-                          }
-                        }}
-                        disabled={downloadingFiles.has(currentPath ? `${currentPath}/${file.name}` : file.name)}
-                      >
-                        {downloadingFiles.has(currentPath ? `${currentPath}/${file.name}` : file.name) ? (
-                          <CircularProgress size={24} />
-                        ) : (
-                          <DownloadIcon />
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {isSearchMode && (
+                          <IconButton
+                            edge="end"
+                            aria-label="copy path"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(getFileFullPath(file));
+                            }}
+                          >
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
                         )}
-                      </IconButton>
+                        <IconButton 
+                          edge="end" 
+                          aria-label="download"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const fullPath = getFileFullPath(file);
+                            setDownloadingFiles(prev => new Set(prev).add(fullPath));
+                            try {
+                              const response = await fetch(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`);
+                              if (!response.ok) {
+                                throw new Error('Failed to get download URL');
+                              }
+                              const data = await response.json();
+                              // Create a temporary link and trigger download
+                              const link = document.createElement('a');
+                              link.href = data.url;
+                              link.download = data.filename;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            } catch (error) {
+                              console.error('Error downloading file:', error);
+                              // You might want to show an error message to the user here
+                            } finally {
+                              setDownloadingFiles(prev => {
+                                const newSet = new Set(prev);
+                                newSet.delete(fullPath);
+                                return newSet;
+                              });
+                            }
+                          }}
+                          disabled={downloadingFiles.has(getFileFullPath(file))}
+                        >
+                          {downloadingFiles.has(getFileFullPath(file)) ? (
+                            <CircularProgress size={24} />
+                          ) : (
+                            <DownloadIcon />
+                          )}
+                        </IconButton>
+                      </Box>
                     }
+                    onClick={() => {
+                      // When clicking a file in search mode, navigate to its folder and clear search
+                      if (isSearchMode) {
+                        const fullPath = getFileFullPath(file);
+                        const pathParts = fullPath.split('/');
+                        pathParts.pop(); // Remove filename
+                        const folderPath = pathParts.join('/');
+                        setCurrentPath(folderPath);
+                        onClearSearch?.();
+                      }
+                    }}
                   >
                     <InsertDriveFileIcon sx={{ mr: 1, color: 'text.secondary' }} />
                     <ListItemText 
                       primary={file.name}
-                      secondary={formatFileSize(file.size)}
+                      secondary={isSearchMode ? `${getFileFullPath(file)} • ${formatFileSize(file.size)}` : formatFileSize(file.size)}
                     />
                   </ListItem>
                 ))}
@@ -291,11 +457,21 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
 
           {folders.length === 0 && files.length === 0 && (
             <Typography color="text.secondary" sx={{ py: 2 }}>
-              This folder is empty
+              {isSearchMode ? `No results found for "${searchQuery}"` : 'This folder is empty'}
             </Typography>
           )}
         </>
       )}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 } 
