@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Box, List, ListItem, ListItemText, Typography, CircularProgress, Paper, Breadcrumbs, Link, IconButton } from '@mui/material';
+import { Box, List, ListItem, ListItemText, Typography, CircularProgress, Paper, Breadcrumbs, Link, IconButton, Snackbar, Alert } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import DownloadIcon from '@mui/icons-material/Download';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import BucketSelector from './BucketSelector';
 
 interface FileItem {
@@ -33,6 +34,8 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
   const [error, setError] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   useEffect(() => {
     const fetchContents = async () => {
@@ -217,6 +220,22 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
     return folder;
   };
 
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setSnackbarMessage('Path copied to clipboard');
+      setSnackbarOpen(true);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      setSnackbarMessage('Failed to copy path');
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbarOpen(false);
+  };
+
   return (
     <Paper sx={{ p: 2, mt: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
@@ -240,31 +259,42 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
         <>
           {/* Breadcrumb navigation - hide when searching */}
           {!isSearchMode && (
-            <Breadcrumbs 
-              separator={<NavigateNextIcon fontSize="small" />} 
-              aria-label="folder navigation"
-              sx={{ mb: 2 }}
-            >
-              <Link
-                component="button"
-                variant="body1"
-                onClick={() => setCurrentPath('')}
-                sx={{ cursor: 'pointer' }}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Breadcrumbs 
+                separator={<NavigateNextIcon fontSize="small" />} 
+                aria-label="folder navigation"
               >
-                Root
-              </Link>
-              {pathParts.map((part, index) => (
                 <Link
-                  key={index}
                   component="button"
                   variant="body1"
-                  onClick={() => handleBreadcrumbClick(index + 1)}
+                  onClick={() => setCurrentPath('')}
                   sx={{ cursor: 'pointer' }}
                 >
-                  {part}
+                  Root
                 </Link>
-              ))}
-            </Breadcrumbs>
+                {pathParts.map((part, index) => (
+                  <Link
+                    key={index}
+                    component="button"
+                    variant="body1"
+                    onClick={() => handleBreadcrumbClick(index + 1)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    {part}
+                  </Link>
+                ))}
+              </Breadcrumbs>
+              {currentPath && (
+                <IconButton
+                  size="small"
+                  onClick={() => copyToClipboard(currentPath)}
+                  aria-label="copy path"
+                  sx={{ ml: 1 }}
+                >
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
+              )}
+            </Box>
           )}
           
           {/* Search results header */}
@@ -297,6 +327,20 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
                         onClearSearch?.();
                       }
                     }}
+                    secondaryAction={
+                      isSearchMode ? (
+                        <IconButton
+                          edge="end"
+                          aria-label="copy path"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(folder);
+                          }}
+                        >
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                      ) : undefined
+                    }
                   >
                     <FolderIcon sx={{ mr: 1, color: 'primary.main' }} />
                     <ListItemText 
@@ -327,44 +371,59 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
                       }
                     }}
                     secondaryAction={
-                      <IconButton 
-                        edge="end" 
-                        aria-label="download"
-                        onClick={async () => {
-                          const fullPath = getFileFullPath(file);
-                          setDownloadingFiles(prev => new Set(prev).add(fullPath));
-                          try {
-                            const response = await fetch(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`);
-                            if (!response.ok) {
-                              throw new Error('Failed to get download URL');
-                            }
-                            const data = await response.json();
-                            // Create a temporary link and trigger download
-                            const link = document.createElement('a');
-                            link.href = data.url;
-                            link.download = data.filename;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          } catch (error) {
-                            console.error('Error downloading file:', error);
-                            // You might want to show an error message to the user here
-                          } finally {
-                            setDownloadingFiles(prev => {
-                              const newSet = new Set(prev);
-                              newSet.delete(fullPath);
-                              return newSet;
-                            });
-                          }
-                        }}
-                        disabled={downloadingFiles.has(getFileFullPath(file))}
-                      >
-                        {downloadingFiles.has(getFileFullPath(file)) ? (
-                          <CircularProgress size={24} />
-                        ) : (
-                          <DownloadIcon />
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {isSearchMode && (
+                          <IconButton
+                            edge="end"
+                            aria-label="copy path"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(getFileFullPath(file));
+                            }}
+                          >
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
                         )}
-                      </IconButton>
+                        <IconButton 
+                          edge="end" 
+                          aria-label="download"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const fullPath = getFileFullPath(file);
+                            setDownloadingFiles(prev => new Set(prev).add(fullPath));
+                            try {
+                              const response = await fetch(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`);
+                              if (!response.ok) {
+                                throw new Error('Failed to get download URL');
+                              }
+                              const data = await response.json();
+                              // Create a temporary link and trigger download
+                              const link = document.createElement('a');
+                              link.href = data.url;
+                              link.download = data.filename;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            } catch (error) {
+                              console.error('Error downloading file:', error);
+                              // You might want to show an error message to the user here
+                            } finally {
+                              setDownloadingFiles(prev => {
+                                const newSet = new Set(prev);
+                                newSet.delete(fullPath);
+                                return newSet;
+                              });
+                            }
+                          }}
+                          disabled={downloadingFiles.has(getFileFullPath(file))}
+                        >
+                          {downloadingFiles.has(getFileFullPath(file)) ? (
+                            <CircularProgress size={24} />
+                          ) : (
+                            <DownloadIcon />
+                          )}
+                        </IconButton>
+                      </Box>
                     }
                     onClick={() => {
                       // When clicking a file in search mode, navigate to its folder and clear search
@@ -396,6 +455,16 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
           )}
         </>
       )}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 } 
