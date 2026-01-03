@@ -9,6 +9,7 @@ import BucketSelector from './BucketSelector';
 interface FileItem {
   name: string;
   size: number;
+  fullPath?: string; // Optional full path for search results
 }
 
 interface FolderStructure {
@@ -22,9 +23,11 @@ interface FolderStructure {
 interface BucketContentsProps {
   bucketName: string;
   onBucketSelect: (bucketName: string) => void;
+  searchQuery?: string;
+  onClearSearch?: () => void;
 }
 
-export default function BucketContents({ bucketName, onBucketSelect }: BucketContentsProps) {
+export default function BucketContents({ bucketName, onBucketSelect, searchQuery = '', onClearSearch }: BucketContentsProps) {
   const [contents, setContents] = useState<FileItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,27 +97,79 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
-  const getCurrentFolderContents = (structure: FolderStructure): { files: FileItem[], folders: string[] } => {
-    if (!currentPath) {
-      return {
-        files: structure[''].files,
-        folders: Object.keys(structure[''].subfolders)
+  const getAllFolders = (structure: FolderStructure, prefix = ''): string[] => {
+    const folders: string[] = [];
+    const root = structure[''];
+    
+    const traverse = (level: { files: FileItem[], subfolders: { [key: string]: any } }, path: string) => {
+      Object.keys(level.subfolders).forEach(folderPath => {
+        folders.push(folderPath);
+        traverse(level.subfolders[folderPath], folderPath);
+      });
+    };
+    
+    traverse(root, '');
+    return folders;
+  };
+
+  const getCurrentFolderContents = (structure: FolderStructure): { files: FileItem[], folders: string[], isSearchMode: boolean } => {
+    const hasSearchQuery = searchQuery.trim().length > 0;
+    
+    // If searching, search globally across all files and folders
+    if (hasSearchQuery) {
+      const query = searchQuery.toLowerCase().trim();
+      const allFiles: FileItem[] = [];
+      const allFolders: string[] = [];
+      
+      // Search through all files
+      contents.forEach(file => {
+        if (file.name.toLowerCase().includes(query)) {
+          allFiles.push({
+            name: file.name.split('/').pop() || file.name,
+            size: file.size,
+            fullPath: file.name
+          });
+        }
+      });
+      
+      // Search through all folders
+      const allFolderPaths = getAllFolders(structure);
+      allFolderPaths.forEach(folderPath => {
+        const folderName = folderPath.split('/').pop() || '';
+        if (folderName.toLowerCase().includes(query) || folderPath.toLowerCase().includes(query)) {
+          allFolders.push(folderPath);
+        }
+      });
+      
+      return { 
+        files: allFiles, 
+        folders: allFolders,
+        isSearchMode: true
       };
     }
-
-    const parts = currentPath.split('/');
-    let currentLevel = structure[''];
     
-    for (const part of parts) {
-      const path = parts.slice(0, parts.indexOf(part) + 1).join('/');
-      currentLevel = currentLevel.subfolders[path];
-      if (!currentLevel) break;
+    // Normal folder browsing mode
+    let files: FileItem[] = [];
+    let folders: string[] = [];
+
+    if (!currentPath) {
+      files = structure[''].files;
+      folders = Object.keys(structure[''].subfolders);
+    } else {
+      const parts = currentPath.split('/');
+      let currentLevel = structure[''];
+      
+      for (const part of parts) {
+        const path = parts.slice(0, parts.indexOf(part) + 1).join('/');
+        currentLevel = currentLevel.subfolders[path];
+        if (!currentLevel) break;
+      }
+
+      files = currentLevel?.files || [];
+      folders = Object.keys(currentLevel?.subfolders || {});
     }
 
-    return {
-      files: currentLevel?.files || [],
-      folders: Object.keys(currentLevel?.subfolders || {})
-    };
+    return { files, folders, isSearchMode: false };
   };
 
   const handleFolderClick = (folderPath: string) => {
@@ -143,8 +198,24 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
   }
 
   const folderStructure = organizeByFolders(contents);
-  const { files, folders } = getCurrentFolderContents(folderStructure);
+  const { files, folders, isSearchMode } = getCurrentFolderContents(folderStructure);
   const pathParts = currentPath ? currentPath.split('/') : [];
+  
+  // Get full paths for search results
+  const getFileFullPath = (file: FileItem): string => {
+    if (isSearchMode && file.fullPath) {
+      return file.fullPath;
+    }
+    return currentPath ? `${currentPath}/${file.name}` : file.name;
+  };
+  
+  const getFolderDisplayName = (folder: string): string => {
+    return folder.split('/').pop() || folder;
+  };
+  
+  const getFolderFullPath = (folder: string): string => {
+    return folder;
+  };
 
   return (
     <Paper sx={{ p: 2, mt: 2 }}>
@@ -167,32 +238,41 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
       
       {bucketName && (
         <>
-          {/* Breadcrumb navigation */}
-          <Breadcrumbs 
-            separator={<NavigateNextIcon fontSize="small" />} 
-            aria-label="folder navigation"
-            sx={{ mb: 2 }}
-          >
-            <Link
-              component="button"
-              variant="body1"
-              onClick={() => setCurrentPath('')}
-              sx={{ cursor: 'pointer' }}
+          {/* Breadcrumb navigation - hide when searching */}
+          {!isSearchMode && (
+            <Breadcrumbs 
+              separator={<NavigateNextIcon fontSize="small" />} 
+              aria-label="folder navigation"
+              sx={{ mb: 2 }}
             >
-              Root
-            </Link>
-            {pathParts.map((part, index) => (
               <Link
-                key={index}
                 component="button"
                 variant="body1"
-                onClick={() => handleBreadcrumbClick(index + 1)}
+                onClick={() => setCurrentPath('')}
                 sx={{ cursor: 'pointer' }}
               >
-                {part}
+                Root
               </Link>
-            ))}
-          </Breadcrumbs>
+              {pathParts.map((part, index) => (
+                <Link
+                  key={index}
+                  component="button"
+                  variant="body1"
+                  onClick={() => handleBreadcrumbClick(index + 1)}
+                  sx={{ cursor: 'pointer' }}
+                >
+                  {part}
+                </Link>
+              ))}
+            </Breadcrumbs>
+          )}
+          
+          {/* Search results header */}
+          {isSearchMode && (
+            <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
+              Search results for "{searchQuery}" ({files.length + folders.length} {files.length + folders.length === 1 ? 'result' : 'results'})
+            </Typography>
+          )}
 
           {/* Folders */}
           {folders.length > 0 && (
@@ -210,10 +290,19 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
                       cursor: 'pointer',
                       '&:hover': { backgroundColor: 'action.hover' }
                     }}
-                    onClick={() => handleFolderClick(folder)}
+                    onClick={() => {
+                      handleFolderClick(folder);
+                      // Clear search when navigating to a folder
+                      if (isSearchMode) {
+                        onClearSearch?.();
+                      }
+                    }}
                   >
                     <FolderIcon sx={{ mr: 1, color: 'primary.main' }} />
-                    <ListItemText primary={folder.split('/').pop()} />
+                    <ListItemText 
+                      primary={getFolderDisplayName(folder)}
+                      secondary={isSearchMode ? folder : undefined}
+                    />
                   </ListItem>
                 ))}
               </List>
@@ -242,7 +331,7 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
                         edge="end" 
                         aria-label="download"
                         onClick={async () => {
-                          const fullPath = currentPath ? `${currentPath}/${file.name}` : file.name;
+                          const fullPath = getFileFullPath(file);
                           setDownloadingFiles(prev => new Set(prev).add(fullPath));
                           try {
                             const response = await fetch(`/api/buckets/${bucketName}/download/${encodeURIComponent(fullPath)}`);
@@ -268,20 +357,31 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
                             });
                           }
                         }}
-                        disabled={downloadingFiles.has(currentPath ? `${currentPath}/${file.name}` : file.name)}
+                        disabled={downloadingFiles.has(getFileFullPath(file))}
                       >
-                        {downloadingFiles.has(currentPath ? `${currentPath}/${file.name}` : file.name) ? (
+                        {downloadingFiles.has(getFileFullPath(file)) ? (
                           <CircularProgress size={24} />
                         ) : (
                           <DownloadIcon />
                         )}
                       </IconButton>
                     }
+                    onClick={() => {
+                      // When clicking a file in search mode, navigate to its folder and clear search
+                      if (isSearchMode) {
+                        const fullPath = getFileFullPath(file);
+                        const pathParts = fullPath.split('/');
+                        pathParts.pop(); // Remove filename
+                        const folderPath = pathParts.join('/');
+                        setCurrentPath(folderPath);
+                        onClearSearch?.();
+                      }
+                    }}
                   >
                     <InsertDriveFileIcon sx={{ mr: 1, color: 'text.secondary' }} />
                     <ListItemText 
                       primary={file.name}
-                      secondary={formatFileSize(file.size)}
+                      secondary={isSearchMode ? `${getFileFullPath(file)} • ${formatFileSize(file.size)}` : formatFileSize(file.size)}
                     />
                   </ListItem>
                 ))}
@@ -291,7 +391,7 @@ export default function BucketContents({ bucketName, onBucketSelect }: BucketCon
 
           {folders.length === 0 && files.length === 0 && (
             <Typography color="text.secondary" sx={{ py: 2 }}>
-              This folder is empty
+              {isSearchMode ? `No results found for "${searchQuery}"` : 'This folder is empty'}
             </Typography>
           )}
         </>

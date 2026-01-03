@@ -11,6 +11,12 @@ import { useState } from "react";
 export default function Home() {
   const { status } = useSession();
   const [selectedBucket, setSelectedBucket] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const handleBucketSelect = (bucketName: string) => {
+    setSelectedBucket(bucketName);
+    setSearchQuery(''); // Clear search when bucket changes
+  };
 
   if (status === "loading") {
     return (
@@ -30,12 +36,16 @@ export default function Home() {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar 
         selectedBucket={selectedBucket}
-        onBucketSelect={setSelectedBucket} 
+        onBucketSelect={handleBucketSelect}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
       <Container component="main" sx={{ mt: 4, flex: 1 }}>
         <BucketContents 
           bucketName={selectedBucket}
-          onBucketSelect={setSelectedBucket}
+          onBucketSelect={handleBucketSelect}
+          searchQuery={searchQuery}
+          onClearSearch={() => setSearchQuery('')}
         />
       </Container>
     </Box>
