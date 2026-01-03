@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Box, List, ListItem, ListItemText, Typography, CircularProgress, Paper, Breadcrumbs, Link, IconButton, Snackbar, Alert } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -124,25 +124,27 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
       const allFiles: FileItem[] = [];
       const allFolders: string[] = [];
       
-      // Search through all files
-      contents.forEach(file => {
-        if (file.name.toLowerCase().includes(query)) {
-          allFiles.push({
-            name: file.name.split('/').pop() || file.name,
-            size: file.size,
-            fullPath: file.name
-          });
-        }
-      });
-      
-      // Search through all folders
-      const allFolderPaths = getAllFolders(structure);
-      allFolderPaths.forEach(folderPath => {
-        const folderName = folderPath.split('/').pop() || '';
-        if (folderName.toLowerCase().includes(query) || folderPath.toLowerCase().includes(query)) {
-          allFolders.push(folderPath);
-        }
-      });
+      // Search through all files - optimized with early exit for empty query
+      if (query.length > 0) {
+        contents.forEach(file => {
+          if (file.name.toLowerCase().includes(query)) {
+            allFiles.push({
+              name: file.name.split('/').pop() || file.name,
+              size: file.size,
+              fullPath: file.name
+            });
+          }
+        });
+        
+        // Search through all folders - calculate from structure
+        const allFolderPaths = getAllFolders(structure);
+        allFolderPaths.forEach(folderPath => {
+          const folderName = folderPath.split('/').pop() || '';
+          if (folderName.toLowerCase().includes(query) || folderPath.toLowerCase().includes(query)) {
+            allFolders.push(folderPath);
+          }
+        });
+      }
       
       return { 
         files: allFiles, 
@@ -184,6 +186,18 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
     setCurrentPath(parts.slice(0, index).join('/'));
   };
 
+  // Memoize the folder structure to avoid recalculating on every render
+  // Must be called before any early returns to follow React hooks rules
+  const folderStructure = useMemo(() => organizeByFolders(contents), [contents]);
+  
+  // Memoize the current folder contents to avoid recalculating search on every render
+  const { files, folders, isSearchMode } = useMemo(
+    () => getCurrentFolderContents(folderStructure),
+    [folderStructure, searchQuery, currentPath, contents]
+  );
+  
+  const pathParts = currentPath ? currentPath.split('/') : [];
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -199,10 +213,6 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
       </Box>
     );
   }
-
-  const folderStructure = organizeByFolders(contents);
-  const { files, folders, isSearchMode } = getCurrentFolderContents(folderStructure);
-  const pathParts = currentPath ? currentPath.split('/') : [];
   
   // Get full paths for search results
   const getFileFullPath = (file: FileItem): string => {

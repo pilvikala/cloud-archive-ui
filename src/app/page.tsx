@@ -18,6 +18,10 @@ export default function Home() {
     setSearchQuery(''); // Clear search when bucket changes
   };
 
+  const handleSearchChange = async (query: string) => {
+    setSearchQuery(query);
+  };
+
   if (status === "loading") {
     return (
       <div className={styles.page}>
@@ -37,8 +41,7 @@ export default function Home() {
       <Navbar 
         selectedBucket={selectedBucket}
         onBucketSelect={handleBucketSelect}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
       />
       <Container component="main" sx={{ mt: 4, flex: 1 }}>
         <BucketContents 

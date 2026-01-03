@@ -2,15 +2,42 @@ import { AppBar, Toolbar, Typography, Button, Box, TextField, InputAdornment } f
 import SearchIcon from '@mui/icons-material/Search';
 import { signOut } from 'next-auth/react';
 import BucketSelector from './BucketSelector';
+import { useState, useEffect, useRef } from 'react';
 
 interface NavbarProps {
   selectedBucket: string;
   onBucketSelect: (bucketName: string) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
+  onSearchChange: (query: string) => Promise<void>;
 }
 
-export default function Navbar({ selectedBucket, onBucketSelect, searchQuery, onSearchChange }: NavbarProps) {
+export default function Navbar({ selectedBucket, onBucketSelect, onSearchChange }: NavbarProps) {
+  const [localSearchValue, setLocalSearchValue] = useState('');
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Clear any existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Set a new timer to debounce the search
+    debounceTimerRef.current = setTimeout(() => {
+      onSearchChange(localSearchValue);
+    }, 300); // 300ms debounce delay
+
+    // Cleanup function
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [localSearchValue, onSearchChange]);
+
+  // Clear search when bucket changes
+  useEffect(() => {
+    setLocalSearchValue('');
+  }, [selectedBucket]);
+
   return (
     <AppBar position="static">
       <Toolbar>
@@ -23,8 +50,8 @@ export default function Navbar({ selectedBucket, onBucketSelect, searchQuery, on
               placeholder="Search files and folders..."
               variant="outlined"
               size="small"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
+              value={localSearchValue}
+              onChange={(e) => setLocalSearchValue(e.target.value)}
               sx={{
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
                 borderRadius: 1,
