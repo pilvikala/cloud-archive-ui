@@ -10,7 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@auth/core": "^0.34.2",
+    "@auth/core": "^0.41.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@google-cloud/storage": "^7.16.0",
