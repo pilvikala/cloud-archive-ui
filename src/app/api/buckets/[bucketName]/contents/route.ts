@@ -1,13 +1,12 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { listBucketContents } from '@/lib/gcpClient';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/auth';
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ bucketName: string }> },
 ) {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -28,4 +27,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}

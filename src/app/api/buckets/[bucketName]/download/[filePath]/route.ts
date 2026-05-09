@@ -1,13 +1,12 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { getSignedUrl } from '@/lib/gcpClient';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/auth';
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ bucketName: string; filePath: string }> }
 ) {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -23,15 +22,8 @@ export async function GET(
 
   try {
     const signedUrl = await getSignedUrl(bucketName, filePath);
-    
-    // Get the filename from the path
     const filename = filePath.split('/').pop() || filePath;
-    
-    // Return the signed URL and filename
-    return NextResponse.json({
-      url: signedUrl,
-      filename: filename
-    });
+    return NextResponse.json({ url: signedUrl, filename });
   } catch (error) {
     console.error(`Error generating signed URL for file ${filePath} from bucket ${bucketName}:`, error);
     return NextResponse.json(
@@ -39,4 +31,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}
