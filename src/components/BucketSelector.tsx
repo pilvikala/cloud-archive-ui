@@ -29,10 +29,10 @@ export default function BucketSelector({
           throw new Error('Failed to fetch buckets');
         }
         const data = await response.json();
-        setBuckets(data);
+        setBuckets(data.buckets);
         setError(null);
-        if(data.length > 0) {
-          onBucketSelect(data[0]);
+        if (data.buckets.length > 0) {
+          onBucketSelect(data.defaultBucket ?? data.buckets[0]);
         }
       } catch (err) {
         setError('Failed to load buckets');

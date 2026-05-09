@@ -63,6 +63,22 @@ GOOGLE_SERVICE_ACCOUNT='
 Note: Keep your service account key secure and never commit it to version control. If compromised, you can always delete the key and create a new one.
 
 
+## Configuring allowed buckets
+
+By default, all buckets accessible to the service account are shown in the bucket selector. To restrict which buckets are displayed, edit [src/config/buckets.ts](src/config/buckets.ts):
+
+```ts
+const buckets: BucketConfig[] = [
+  { name: 'my-archive-bucket', default: true },
+  { name: 'my-other-bucket' },
+];
+```
+
+- **`name`** — the exact GCP bucket name to allow.
+- **`default`** — (optional) mark one bucket as the default selection.
+
+If the array is empty (the out-of-the-box setting), all buckets the service account can access are shown.
+
 ## Run the server locally
 
 Make sure you have NodeJS installed. Then install dependencies:
