@@ -317,7 +317,7 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
                 Folders
               </Typography>
               <List>
-                {folders.map((folder) => (
+                {folders.sort((a, b) => a.localeCompare(b)).map((folder) => (
                   <ListItem 
                     key={folder}
                     component="div"
@@ -367,7 +367,7 @@ export default function BucketContents({ bucketName, onBucketSelect, searchQuery
                 Files
               </Typography>
               <List>
-                {files.map((file, index) => (
+                {files.sort((a, b) => a.name.localeCompare(b.name)).map((file, index) => (
                   <ListItem 
                     key={index} 
                     sx={{ 
